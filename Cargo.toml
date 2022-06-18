@@ -1,0 +1,15 @@
+[package]
+name = "spotify-control"
+version = "1.0.0"
+edition = "2021"
+description = "Control Spotify from the command line"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[dependencies]
+clap = { version = "3.2.5", features = ["derive"] }
+dbus = "0.9.5"
+notify-rust = "4.5.8"
+temp-file = "0.1.7"
+ureq = "2.4.0"
+
