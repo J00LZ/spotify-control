@@ -494,6 +494,12 @@ dependencies = [
 ]
 
 [[package]]
+name = "itoa"
+version = "1.0.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "112c678d4050afce233f4f2852bb2eb519230b3cf12f33585275537d7e41578d"
+
+[[package]]
 name = "js-sys"
 version = "0.3.58"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -911,6 +917,12 @@ dependencies = [
 ]
 
 [[package]]
+name = "ryu"
+version = "1.0.10"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "f3f6f92acf49d1b98f7a81226834412ada05458b7364277387724a237f062695"
+
+[[package]]
 name = "scopeguard"
 version = "1.1.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -944,6 +956,17 @@ dependencies = [
  "proc-macro2",
  "quote",
  "syn",
+]
+
+[[package]]
+name = "serde_json"
+version = "1.0.81"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "9b7ce2b32a1aed03c558dc61a5cd328f15aff2dbc17daad8fb8af04d2100e15c"
+dependencies = [
+ "itoa",
+ "ryu",
+ "serde",
 ]
 
 [[package]]
@@ -1002,11 +1025,12 @@ checksum = "6e63cff320ae2c57904679ba7cb63280a3dc4613885beafb148ee7bf9aa9042d"
 
 [[package]]
 name = "spotify-control"
-version = "1.0.0"
+version = "1.1.0"
 dependencies = [
  "clap",
  "dbus",
  "notify-rust",
+ "serde",
  "temp-file",
  "ureq",
 ]
@@ -1046,9 +1070,9 @@ dependencies = [
 
 [[package]]
 name = "syn"
-version = "1.0.96"
+version = "1.0.97"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "0748dd251e24453cb8717f0354206b91557e4ec8703673a4b30208f2abaf1ebf"
+checksum = "233d6785e2e6b8442eb26736eaef8c8f0ce0e575c1457d06c3f2812f9cb4c8a0"
 dependencies = [
  "proc-macro2",
  "quote",
@@ -1231,6 +1255,8 @@ dependencies = [
  "log",
  "once_cell",
  "rustls",
+ "serde",
+ "serde_json",
  "url",
  "webpki",
  "webpki-roots",
@@ -1444,9 +1470,9 @@ checksum = "d2d7d3948613f75c98fd9328cfdcc45acc4d360655289d0a7d4ec931392200a3"
 
 [[package]]
 name = "zbus"
-version = "2.3.1"
+version = "2.3.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "79fa581173f081cddb0a5fdf5bd93a1c2e0d18f912e877abeac345cc506438ad"
+checksum = "2d8f1a037b2c4a67d9654dc7bdfa8ff2e80555bbefdd3c1833c1d1b27c963a6b"
 dependencies = [
  "async-broadcast",
  "async-channel",
@@ -1484,9 +1510,9 @@ dependencies = [
 
 [[package]]
 name = "zbus_macros"
-version = "2.3.1"
+version = "2.3.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "b1aeebcf4bcee4668f64e1de231464a81ace79dd651cbe1b567007b48ad31862"
+checksum = "1f8fb5186d1c87ae88cf234974c240671238b4a679158ad3b94ec465237349a6"
 dependencies = [
  "proc-macro-crate",
  "proc-macro2",
@@ -1508,9 +1534,9 @@ dependencies = [
 
 [[package]]
 name = "zvariant"
-version = "3.3.0"
+version = "3.3.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "e374c6fc8c84bd5392281285ec9ac003b0a1159d985d8e93ea17c8796d03354d"
+checksum = "d591e3f579e495afb10804fc2aa3539179da4349c5336209b2dab5bb383623cc"
 dependencies = [
  "byteorder",
  "enumflags2",
@@ -1522,9 +1548,9 @@ dependencies = [
 
 [[package]]
 name = "zvariant_derive"
-version = "3.3.0"
+version = "3.3.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "af4062552b13f1097b5e53ac7369c34efee5912fdc19c76805244f5e4ed5fa0e"
+checksum = "1243857b54e900ff11d850b0703cc0ae041f2367fc4f6c89a791a4e301dd47a2"
 dependencies = [
  "proc-macro-crate",
  "proc-macro2",

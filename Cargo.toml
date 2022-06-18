@@ -1,6 +1,6 @@
 [package]
 name = "spotify-control"
-version = "1.0.0"
+version = "1.1.0"
 edition = "2021"
 description = "Control Spotify from the command line"
 
@@ -10,6 +10,7 @@ description = "Control Spotify from the command line"
 clap = { version = "3.2.5", features = ["derive"] }
 dbus = "0.9.5"
 notify-rust = "4.5.8"
+serde = { version = "1.0.137", features = ["derive"] }
 temp-file = "0.1.7"
-ureq = "2.4.0"
+ureq = { version = "2.4.0", features = ["json"] }
 
