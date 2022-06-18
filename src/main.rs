@@ -44,6 +44,9 @@ enum PlayMode {
         /// Allows picking from a list of songs instead of starting the first
         #[clap(short, long, action)]
         list: bool,
+
+        #[clap(short, long, default_value = "5")]
+        count: usize,
     },
 }
 
@@ -147,11 +150,11 @@ fn play_song(proxy: &Proxy<&Connection>, mode: PlayMode) {
         PlayMode::Uri { uri } => {
             send_command_with_args(proxy, "OpenUri", uri);
         }
-        PlayMode::Search { query, list } => {
+        PlayMode::Search { query, list, count } => {
             let query = query.join(" ");
             let track = search(&query);
             if list {
-                for (i, track) in track.iter().take(5).enumerate() {
+                for (i, track) in track.iter().take(count).enumerate() {
                     println!("{} - {}", i, track);
                 }
                 print!("Enter a number to play: ");
