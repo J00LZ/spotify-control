@@ -13,7 +13,7 @@ The following commands are available:
   * `search name of song` will search spotify for a song matching the name, and play the first result. By using `search -l|--list name of song` you will get a simple selector where you can pick one of the first 5 results. Using `-c|--count n` in addition to `-l` you can instead display the first `n` songs.
 
 With the flag `-s|--service-name` you can specify a different service to send the request to. Other mediaplayers (like vlc for instance)
-migth use a simmilar api so they can be controlled using this program as well.
+migth use a similar api so they can be controlled using this program as well.
 
 ## Example
 ```sh
@@ -27,6 +27,8 @@ $ spotify-control play-song search megalovania
 ## Installing
 After cloning the repo, using `cargo install --path .` can be used to install it to `$HOME/.cargo/bin`. So if that folder is
 added to your path you can run it from everywhere. 
+
+If you use Arch Linux, you can also install it from the AUR: https://aur.archlinux.org/packages/spotify-control
 
 ## Notes
 This only works on Linux, since it uses the DBus api.
