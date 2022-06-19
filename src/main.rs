@@ -1,18 +1,89 @@
-use std::{
-    fmt::Display,
-    io::{Read, Write},
-    time::Duration,
-    vec,
-};
+use std::{collections::HashMap, fmt::Display, io::Write, vec};
 
 use clap::{Parser, Subcommand};
-use dbus::{
-    arg,
-    blocking::{stdintf::org_freedesktop_dbus::Properties, Connection, Proxy},
-};
 
 use notify_rust::{Hint, Notification};
 use serde::{Deserialize, Serialize};
+use zbus::{
+    dbus_proxy,
+    zvariant::{OwnedValue, Value},
+};
+
+#[dbus_proxy(
+    interface = "org.mpris.MediaPlayer2.Player",
+    default_path = "/org/mpris/MediaPlayer2",
+    default_service = "org.mpris.MediaPlayer2.spotify"
+)]
+trait Player {
+    fn play_pause(&self) -> zbus::Result<()>;
+    fn next(&self) -> zbus::Result<()>;
+    fn previous(&self) -> zbus::Result<()>;
+    fn open_uri(&self, uri: &str) -> zbus::Result<()>;
+    #[dbus_proxy(property)]
+    fn metadata(&self) -> zbus::Result<Metadata>;
+}
+
+#[derive(Debug)]
+pub enum Error {
+    ZbusError(zbus::Error),
+    MetadataError(MetadataError),
+}
+
+#[derive(Debug, Clone)]
+pub enum MetadataError {
+    MissingKey(String),
+    InvalidValueType(String),
+}
+
+#[derive(Debug)]
+pub struct Metadata {
+    r#title: String,
+    artists: Vec<String>,
+    album: String,
+    artwork: String,
+}
+
+impl TryInto<OwnedValue> for Metadata {
+    type Error = zbus::Error;
+    fn try_into(self) -> zbus::Result<OwnedValue> {
+        let mut map = HashMap::new();
+        map.insert("xesam:title".to_string(), Value::new(self.title));
+        map.insert("xesam:artist".to_string(), Value::new(self.artists));
+        map.insert("xesam:album".to_string(), Value::new(self.album));
+        map.insert("mpris:artUrl".to_string(), Value::new(self.artwork));
+        Ok(Value::Dict(map.into()).into())
+    }
+}
+
+impl Into<Metadata> for OwnedValue {
+    fn into(self) -> Metadata {
+        let mut map: HashMap<String, Value<'_>> = HashMap::new();
+        if let Value::Dict(dict) = self.into() {
+            map = dict.try_into().unwrap();
+        }
+        let title = map.get("xesam:title").cloned().unwrap().downcast().unwrap();
+        let artists = map
+            .get("xesam:artist")
+            .cloned()
+            .unwrap()
+            .downcast()
+            .unwrap();
+        let album = map.get("xesam:album").cloned().unwrap().downcast().unwrap();
+        let artwork = map
+            .get("mpris:artUrl")
+            .cloned()
+            .unwrap()
+            .downcast()
+            .unwrap();
+
+        Metadata {
+            title,
+            artists,
+            album,
+            artwork,
+        }
+    }
+}
 
 #[derive(Debug, Clone, PartialEq, Eq, Subcommand)]
 enum Commands {
@@ -114,45 +185,43 @@ struct Album {
     name: String,
 }
 
-fn search(query: &str) -> Vec<Track> {
+async fn search(query: &str) -> Vec<Track> {
     let url = format!(
         "https://spotify-search-api-test.herokuapp.com/search/tracks?track={}",
         query.replace(' ', "%20")
     );
-    let res = ureq::get(&url)
-        .call()
-        .unwrap()
-        .into_json::<Response>()
-        .unwrap();
+    let res: Response = reqwest::get(&url).await.unwrap().json().await.unwrap();
     res.tracks.items
 }
 
-fn main() {
+#[tokio::main]
+async fn main() {
     let args = Args::parse();
 
-    let conn = dbus::blocking::Connection::new_session().unwrap();
-    let proxy = conn.with_proxy(
-        args.service_name,
-        "/org/mpris/MediaPlayer2",
-        Duration::from_secs(5),
-    );
+    let conn = zbus::Connection::session().await.unwrap();
+
+    let proxy = PlayerProxy::builder(&conn)
+        .destination(args.service_name)
+        .unwrap()
+        .build()
+        .await
+        .unwrap();
+
     match args.action {
-        Commands::Next => send_command(&proxy, "Next"),
-        Commands::Previous => send_command(&proxy, "Previous"),
-        Commands::PlayPause => send_command(&proxy, "PlayPause"),
-        Commands::NowPlaying => what(proxy),
-        Commands::PlaySong { mode } => play_song(&proxy, mode),
+        Commands::Next => proxy.next().await.unwrap(),
+        Commands::Previous => proxy.previous().await.unwrap(),
+        Commands::PlayPause => proxy.play_pause().await.unwrap(),
+        Commands::NowPlaying => what(proxy.metadata().await.unwrap().try_into().unwrap()).await,
+        Commands::PlaySong { mode } => play_song(&proxy, mode).await,
     }
 }
 
-fn play_song(proxy: &Proxy<&Connection>, mode: PlayMode) {
+async fn play_song<'proxy>(proxy: &PlayerProxy<'proxy>, mode: PlayMode) {
     match mode {
-        PlayMode::Uri { uri } => {
-            send_command_with_args(proxy, "OpenUri", uri);
-        }
+        PlayMode::Uri { uri } => proxy.open_uri(&uri).await.unwrap(),
         PlayMode::Search { query, list, count } => {
             let query = query.join(" ");
-            let track = search(&query);
+            let track = search(&query).await;
             if list {
                 for (i, track) in track.iter().take(count).enumerate() {
                     println!("{} - {}", i, track);
@@ -165,11 +234,11 @@ fn play_song(proxy: &Proxy<&Connection>, mode: PlayMode) {
                 let track = track.get(input).unwrap();
                 println!("Playing {}", track);
                 let uri = format!("spotify:track:{}", track.id);
-                send_command_with_args(proxy, "OpenUri", uri);
+                proxy.open_uri(&uri).await.unwrap()
             } else if let Some(track) = track.first() {
                 println!("Playing {}", track);
                 let uri = format!("spotify:track:{}", track.id);
-                send_command_with_args(proxy, "OpenUri", uri);
+                proxy.open_uri(&uri).await.unwrap()
             } else {
                 println!("No track found for {}", query);
             }
@@ -177,50 +246,19 @@ fn play_song(proxy: &Proxy<&Connection>, mode: PlayMode) {
     }
 }
 
-fn send_command(proxy: &Proxy<&Connection>, command: &str) {
-    let _: () = proxy
-        .method_call("org.mpris.MediaPlayer2.Player", command, ())
-        .unwrap();
-}
-
-fn send_command_with_args(proxy: &Proxy<&Connection>, command: &str, arg: String) {
-    let _: () = proxy
-        .method_call("org.mpris.MediaPlayer2.Player", command, (arg,))
-        .unwrap();
-}
-
-fn get_value<T: 'static + Clone>(map: &arg::PropMap, key: &str, default: T) -> T {
-    let res = arg::prop_cast::<T>(map, key);
-    if let Some(res) = res {
-        res.clone()
-    } else {
-        default
-    }
-}
-
-fn what(proxy: Proxy<&Connection>) {
-    let metadata: arg::PropMap = proxy
-        .get("org.mpris.MediaPlayer2.Player", "Metadata")
-        .unwrap();
-
-    let title = get_value(&metadata, "xesam:title", "Unknown".to_string());
-    let artist: Vec<String> = get_value(&metadata, "xesam:artist", vec!["Unknown".to_string()]);
-    let album = get_value(&metadata, "xesam:album", "Unknown".to_string());
-    let cover = get_value(
-        &metadata,
-        "mpris:artUrl",
-        "https://www.scdn.co/i/_global/touch-icon-144.png".to_string(),
-    );
-
-    let res = ureq::get(&cover).call().unwrap();
-    let mut buffer = vec![];
-    res.into_reader().read_to_end(&mut buffer).unwrap();
-    let tmp = temp_file::with_contents(&buffer);
+async fn what(metadata: Metadata) {
+    let res = reqwest::get(&metadata.artwork).await.unwrap();
+    let bytes = res.bytes().await.unwrap();
+    let tmp = temp_file::with_contents(&bytes);
 
     let _not = Notification::new()
         .appname("Spotify Notify")
-        .summary(&title)
-        .body(&format!("{} - {}", artist.join(", "), album))
+        .summary(&metadata.title)
+        .body(&format!(
+            "{} - {}",
+            metadata.artists.join(", "),
+            metadata.album
+        ))
         .image_path(tmp.path().to_str().unwrap())
         .hint(Hint::Category("music".to_string()))
         .show()
